@@ -8,9 +8,7 @@ The data files includes:
   1. RawData.csv
   
     1.1 This raw data file was genreated by Stephen Knapp. 
-  
     1.2 This dataset was used to train and test our machine learning module 
-  
     1.3 It includes about 60 County characteristics. 
   
   2. covid_19_data.csv
