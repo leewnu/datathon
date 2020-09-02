@@ -1,18 +1,22 @@
 # datathon
 
-this project inludes Python and R code. 
+This project inludes Python and R code. 
 
 
-the data files includes: 
+The data files includes: 
   1. RawData.csv
+    This raw data file was genreated by stephen Knapp. 
     This dataset was used to train and test our machine learning module 
     It includes about 60 County characteristics. 
   2. covid_19_data.csv
+    This raw data file was downloaded from Kaggle. 
     This dataset was used to generate figures of world-wide and US COIVD 19 cases
   3. features_and_labels.csv
+    This data file was genreated by stephen Knapp. 
     This dataset was used to try out our machine learning module for the first time. 
     It inlcudes more than 300 County characteristics. 
   4. labels.csv
+    This data file was genreated by stephen Knapp.
     This dataset is the label for the data set
 
 the coding files includes: 
