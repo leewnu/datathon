@@ -1,0 +1,648 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+# Libraries
+```{r}
+library(dplyr)
+library(ggplot2)
+library(ggthemes)
+library(DataExplorer)
+library(caret)
+library(leaps)
+```
+
+
+# Load raw data
+
+```{r}
+features.and.lables <- read.csv("features_and_labels.csv")
+head(features.and.lables)
+```
+
+
+
+```{r}
+essential.data <- features.and.lables[,c("FIPS", 
+                                         "State", 
+                                         "Area_Name",
+                                         "Rural.urban_Continuum.Code_2013",
+                                         "Urban_Influence_Code_2013",
+                                         "Economic_typology_2015",
+                                         "POP_ESTIMATE_2018.x",
+                                         "Percent.of.adults.with.less.than.a.high.school.diploma.2014.18",
+                                         "Percent.of.adults.with.a.high.school.diploma.only.2014.18",
+                                         "Percent.of.adults.completing.some.college.or.associate.s.degree.2014.18",
+                                         "Percent.of.adults.with.a.bachelor.s.degree.or.higher.2014.18",
+                                         "Unemployment_rate_2018",
+                                         "Median_Household_Income_2018",
+                                         "Med_HH_Income_Percent_of_State_Total_2018",
+                                         "Mar.Temp.AVG...F",
+                                         "Apr.Temp.AVG...F",
+                                         "May.Temp.AVG...F",
+                                         "Jun.Temp.AVG...F",
+                                         "Jul.Temp.AVG...F",
+                                         "Aug.Temp.AVG...F",
+                                         "Density.per.square.mile.of.land.area...Population",
+                                         "Density.per.square.mile.of.land.area...Housing.units",
+                                         "Total_Male",
+                                         "Total_age0to17",
+                                         "Total_age18to64",
+                                         "Total_age65plus",
+                                         "Total_age85plusr",
+                                         "DISABILITY.STATUS.OF.THE.CIVILIAN.NONINSTITUTIONALIZED.POPULATION..Total.Civilian.Noninstitutionalized.Population..With.a.disability",
+                                         "DISABILITY.STATUS.OF.THE.CIVILIAN.NONINSTITUTIONALIZED.POPULATION..Under.18.years..With.a.disability",
+                                         "DISABILITY.STATUS.OF.THE.CIVILIAN.NONINSTITUTIONALIZED.POPULATION..18.to.64.years..With.a.disability",
+                                         "DISABILITY.STATUS.OF.THE.CIVILIAN.NONINSTITUTIONALIZED.POPULATION..65.years.and.over..With.a.disability",
+                                         "Total.Active.Patient.Care.Physicians.per.100000.Population.2018..AAMC.",
+                                         "Active.Patient.Care.Primary.Care.Physicians.per.100000.Population.2018..AAMC.",
+                                         "Critical.Care.Medicine..AAMC.",
+                                         "Emergency.Medicine..AAMC.",
+                                         "Family.Medicine.General.Practice..AAMC.",
+                                         "Geriatric.Medicine.....AAMC.",
+                                         "Infectious.Disease..AAMC.",
+                                         "Internal.Medicine..AAMC.",
+                                         "Pulmonary.Disease..AAMC.",
+                                         "Total.Hospitals..2019.",
+                                         "ICU.Beds",
+                                         "transit_scores...population.weighted.averages.aggregated.from.town.city.level.to.county",
+                                         "crime_rate_per_100000",
+                                         "Combined_Key",
+                                         "X8.9.20",
+                                         "case.rate")]
+head(essential.data)
+```
+
+```{r}
+essential.data$percent.male <- essential.data$Total_Male/
+    essential.data$POP_ESTIMATE_2018.x
+essential.data$percent.age.0.17 <- essential.data$Total_age0to17 /
+    essential.data$POP_ESTIMATE_2018.x
+essential.data$percent.age.18.64 <- essential.data$Total_age18to64 /
+    essential.data$POP_ESTIMATE_2018.x
+essential.data$percent.age.65.plus <- essential.data$Total_age65plus /
+    essential.data$POP_ESTIMATE_2018.x
+essential.data$percent.age.85.plus <- essential.data$Total_age85plusr /
+    essential.data$POP_ESTIMATE_2018.x
+
+essential.data$percent.disabled <- as.numeric(as.character(essential.data$DISABILITY.STATUS.OF.THE.CIVILIAN.NONINSTITUTIONALIZED.POPULATION..Total.Civilian.Noninstitutionalized.Population..With.a.disability)) /
+    essential.data$POP_ESTIMATE_2018.x
+
+essential.data$percent.disabled.0.17 <- as.numeric(as.character(essential.data$DISABILITY.STATUS.OF.THE.CIVILIAN.NONINSTITUTIONALIZED.POPULATION..Under.18.years..With.a.disability)) / essential.data$Total_age0to17
+
+essential.data$percent.disabled.18.64 <-
+    as.numeric(as.character(essential.data$DISABILITY.STATUS.OF.THE.CIVILIAN.NONINSTITUTIONALIZED.POPULATION..18.to.64.years..With.a.disability)) / essential.data$Total_age18to64
+
+essential.data$percent.disabled.65.plus <- as.numeric(as.character(essential.data$DISABILITY.STATUS.OF.THE.CIVILIAN.NONINSTITUTIONALIZED.POPULATION..65.years.and.over..With.a.disability)) / essential.data$Total_age65plus
+```
+
+```{r}
+percentile.pop.density <- ecdf(essential.data$Density.per.square.mile.of.land.area...Population)
+essential.data$pop.density.percentile <- percentile.pop.density(essential.data$Density.per.square.mile.of.land.area...Population)
+
+percentile.case.density <- ecdf(essential.data$case.rate)
+essential.data$case.density.percentile <- percentile.case.density(
+    essential.data$case.rate
+)
+```
+
+
+
+
+
+```{r}
+npi.clean.data <- read.csv("NPIclean.csv")
+head(npi.clean.data)
+```
+
+```{r}
+unique(npi.clean.data$npi)
+```
+
+
+```{r}
+npi.clean.data$npi <- as.character(npi.clean.data$npi)
+
+close.public.venues.duration <- as.numeric()
+gathering.10.0.duration <- as.numeric()
+gathering.25.11.duration <- as.numeric()
+gathering.100.26.duration <- as.numeric()
+gathering.500.101.duration <- as.numeric()
+lockdown.duration <- as.numeric()
+non.essential.closure.duration <- as.numeric()
+religious.closure.duration <- as.numeric()
+school.closure.duration <- as.numeric()
+shelter.in.place.duration <- as.numeric()
+social.distancing.duration <- as.numeric()
+
+for (i in 1:nrow(essential.data)) {
+    
+    tmp.FIPS <- essential.data[i,1]
+    if (mean(npi.clean.data$FIPS != tmp.FIPS) == 1) {
+        close.public.venues.duration[i] <- NA
+    } else {
+        close.public.venues.duration[i] <- 
+        npi.clean.data[(npi.clean.data[,1] == tmp.FIPS & npi.clean.data[,4] == "closing_of_public_venues"), 5]
+    }
+    
+    if (mean(npi.clean.data$FIPS != tmp.FIPS) == 1) {
+        gathering.10.0.duration[i] <- NA
+    } else {
+        gathering.10.0.duration[i] <- 
+        npi.clean.data[(npi.clean.data[,1] == tmp.FIPS & npi.clean.data[,4] == "gathering_size_10_0"), 5]
+    }
+    
+    if (mean(npi.clean.data$FIPS != tmp.FIPS) == 1) {
+        gathering.25.11.duration[i] <- NA
+    } else {
+        gathering.25.11.duration[i] <- 
+        npi.clean.data[(npi.clean.data[,1] == tmp.FIPS & npi.clean.data[,4] == "gathering_size_25_11"), 5]
+    }
+    
+    if (mean(npi.clean.data$FIPS != tmp.FIPS) == 1) {
+        gathering.100.26.duration[i] <- NA
+    } else {
+        gathering.100.26.duration[i] <- 
+        npi.clean.data[(npi.clean.data[,1] == tmp.FIPS & npi.clean.data[,4] == "gathering_size_100_26"), 5]
+    }
+    
+    if (mean(npi.clean.data$FIPS != tmp.FIPS) == 1) {
+        gathering.500.101.duration[i] <- NA
+    } else {
+        gathering.500.101.duration[i] <- 
+        npi.clean.data[(npi.clean.data[,1] == tmp.FIPS & npi.clean.data[,4] == "gathering_size_500_101"), 5]
+    }
+    
+    if (mean(npi.clean.data$FIPS != tmp.FIPS) == 1) {
+        lockdown.duration[i] <- NA
+    } else {
+        lockdown.duration[i] <- 
+        npi.clean.data[(npi.clean.data[,1] == tmp.FIPS & npi.clean.data[,4] == "lockdown"), 5]
+    }
+    
+    if (mean(npi.clean.data$FIPS != tmp.FIPS) == 1) {
+        non.essential.closure.duration[i] <- NA
+    } else {
+        non.essential.closure.duration[i] <- 
+        npi.clean.data[(npi.clean.data[,1] == tmp.FIPS & npi.clean.data[,4] == "non-essential_services_closure"), 5]
+    }
+    
+    if (mean(npi.clean.data$FIPS != tmp.FIPS) == 1) {
+        religious.closure.duration[i] <- NA
+    } else {
+        religious.closure.duration[i] <- 
+        npi.clean.data[(npi.clean.data[,1] == tmp.FIPS & npi.clean.data[,4] == "religious_gatherings_banned"), 5]
+    }
+    
+    if (mean(npi.clean.data$FIPS != tmp.FIPS) == 1) {
+        school.closure.duration [i] <- NA
+    } else {
+        school.closure.duration [i] <- 
+        npi.clean.data[(npi.clean.data[,1] == tmp.FIPS & npi.clean.data[,4] == "school closure"), 5]
+    }
+    
+    if (mean(npi.clean.data$FIPS != tmp.FIPS) == 1) {
+        shelter.in.place.duration[i] <- NA
+    } else {
+        shelter.in.place.duration[i] <- 
+        npi.clean.data[(npi.clean.data[,1] == tmp.FIPS & npi.clean.data[,4] == "shelter_in_place"), 5]
+    }
+    
+    if (mean(npi.clean.data$FIPS != tmp.FIPS) == 1) {
+        social.distancing.duration[i] <- NA
+    } else {
+        social.distancing.duration[i] <- 
+        npi.clean.data[(npi.clean.data[,1] == tmp.FIPS & npi.clean.data[,4] == "social_distancing"), 5]
+    }
+
+}
+```
+
+```{r}
+close.public.venues.start.cases <- as.numeric()
+gathering.10.0.start.cases <- as.numeric()
+gathering.25.11.start.cases <- as.numeric()
+gathering.100.26.start.cases <- as.numeric()
+gathering.500.101.start.cases <- as.numeric()
+lockdown.start.cases <- as.numeric()
+non.essential.closure.start.cases <- as.numeric()
+religious.closure.start.cases <- as.numeric()
+school.closure.start.cases <- as.numeric()
+shelter.in.place.start.cases <- as.numeric()
+social.distancing.start.cases <- as.numeric()
+
+for (i in 1:nrow(essential.data)) {
+    
+    tmp.FIPS <- essential.data[i,1]
+    if (mean(npi.clean.data$FIPS != tmp.FIPS) == 1) {
+        close.public.venues.start.cases[i] <- NA
+    } else {
+        close.public.venues.start.cases[i] <- 
+        npi.clean.data[(npi.clean.data[,1] == tmp.FIPS & npi.clean.data[,4] == "closing_of_public_venues"), 6]
+    }
+    
+    if (mean(npi.clean.data$FIPS != tmp.FIPS) == 1) {
+        gathering.10.0.start.cases[i] <- NA
+    } else {
+        gathering.10.0.start.cases[i] <- 
+        npi.clean.data[(npi.clean.data[,1] == tmp.FIPS & npi.clean.data[,4] == "gathering_size_10_0"), 6]
+    }
+    
+    if (mean(npi.clean.data$FIPS != tmp.FIPS) == 1) {
+        gathering.25.11.start.cases[i] <- NA
+    } else {
+        gathering.25.11.start.cases[i] <- 
+        npi.clean.data[(npi.clean.data[,1] == tmp.FIPS & npi.clean.data[,4] == "gathering_size_25_11"), 6]
+    }
+    
+    if (mean(npi.clean.data$FIPS != tmp.FIPS) == 1) {
+        gathering.100.26.start.cases[i] <- NA
+    } else {
+        gathering.100.26.start.cases[i] <- 
+        npi.clean.data[(npi.clean.data[,1] == tmp.FIPS & npi.clean.data[,4] == "gathering_size_100_26"), 6]
+    }
+    
+    if (mean(npi.clean.data$FIPS != tmp.FIPS) == 1) {
+        gathering.500.101.start.cases[i] <- NA
+    } else {
+        gathering.500.101.start.cases[i] <- 
+        npi.clean.data[(npi.clean.data[,1] == tmp.FIPS & npi.clean.data[,4] == "gathering_size_500_101"), 6]
+    }
+    
+    if (mean(npi.clean.data$FIPS != tmp.FIPS) == 1) {
+        lockdown.start.cases[i] <- NA
+    } else {
+        lockdown.start.cases[i] <- 
+        npi.clean.data[(npi.clean.data[,1] == tmp.FIPS & npi.clean.data[,4] == "lockdown"), 6]
+    }
+    
+    if (mean(npi.clean.data$FIPS != tmp.FIPS) == 1) {
+        non.essential.closure.start.cases[i] <- NA
+    } else {
+        non.essential.closure.start.cases[i] <- 
+        npi.clean.data[(npi.clean.data[,1] == tmp.FIPS & npi.clean.data[,4] == "non-essential_services_closure"), 6]
+    }
+    
+    if (mean(npi.clean.data$FIPS != tmp.FIPS) == 1) {
+        religious.closure.start.cases[i] <- NA
+    } else {
+        religious.closure.start.cases[i] <- 
+        npi.clean.data[(npi.clean.data[,1] == tmp.FIPS & npi.clean.data[,4] == "religious_gatherings_banned"), 6]
+    }
+    
+    if (mean(npi.clean.data$FIPS != tmp.FIPS) == 1) {
+        school.closure.start.cases [i] <- NA
+    } else {
+        school.closure.start.cases [i] <- 
+        npi.clean.data[(npi.clean.data[,1] == tmp.FIPS & npi.clean.data[,4] == "school closure"), 6]
+    }
+    
+    if (mean(npi.clean.data$FIPS != tmp.FIPS) == 1) {
+        shelter.in.place.start.cases[i] <- NA
+    } else {
+        shelter.in.place.start.cases[i] <- 
+        npi.clean.data[(npi.clean.data[,1] == tmp.FIPS & npi.clean.data[,4] == "shelter_in_place"), 6]
+    }
+    
+    if (mean(npi.clean.data$FIPS != tmp.FIPS) == 1) {
+        social.distancing.start.cases[i] <- NA
+    } else {
+        social.distancing.start.cases[i] <- 
+        npi.clean.data[(npi.clean.data[,1] == tmp.FIPS & npi.clean.data[,4] == "social_distancing"), 6]
+    }
+
+}
+```
+
+```{r}
+close.public.venues.end.cases <- as.numeric()
+gathering.10.0.end.cases <- as.numeric()
+gathering.25.11.end.cases <- as.numeric()
+gathering.100.26.end.cases <- as.numeric()
+gathering.500.101.end.cases <- as.numeric()
+lockdown.end.cases <- as.numeric()
+non.essential.closure.end.cases <- as.numeric()
+religious.closure.end.cases <- as.numeric()
+school.closure.end.cases <- as.numeric()
+shelter.in.place.end.cases <- as.numeric()
+social.distancing.end.cases <- as.numeric()
+
+for (i in 1:nrow(essential.data)) {
+    
+    tmp.FIPS <- essential.data[i,1]
+    if (mean(npi.clean.data$FIPS != tmp.FIPS) == 1) {
+        close.public.venues.end.cases[i] <- NA
+    } else {
+        close.public.venues.end.cases[i] <- 
+        npi.clean.data[(npi.clean.data[,1] == tmp.FIPS & npi.clean.data[,4] == "closing_of_public_venues"), 6]
+    }
+    
+    if (mean(npi.clean.data$FIPS != tmp.FIPS) == 1) {
+        gathering.10.0.end.cases[i] <- NA
+    } else {
+        gathering.10.0.end.cases[i] <- 
+        npi.clean.data[(npi.clean.data[,1] == tmp.FIPS & npi.clean.data[,4] == "gathering_size_10_0"), 6]
+    }
+    
+    if (mean(npi.clean.data$FIPS != tmp.FIPS) == 1) {
+        gathering.25.11.end.cases[i] <- NA
+    } else {
+        gathering.25.11.end.cases[i] <- 
+        npi.clean.data[(npi.clean.data[,1] == tmp.FIPS & npi.clean.data[,4] == "gathering_size_25_11"), 6]
+    }
+    
+    if (mean(npi.clean.data$FIPS != tmp.FIPS) == 1) {
+        gathering.100.26.end.cases[i] <- NA
+    } else {
+        gathering.100.26.end.cases[i] <- 
+        npi.clean.data[(npi.clean.data[,1] == tmp.FIPS & npi.clean.data[,4] == "gathering_size_100_26"), 6]
+    }
+    
+    if (mean(npi.clean.data$FIPS != tmp.FIPS) == 1) {
+        gathering.500.101.end.cases[i] <- NA
+    } else {
+        gathering.500.101.end.cases[i] <- 
+        npi.clean.data[(npi.clean.data[,1] == tmp.FIPS & npi.clean.data[,4] == "gathering_size_500_101"), 6]
+    }
+    
+    if (mean(npi.clean.data$FIPS != tmp.FIPS) == 1) {
+        lockdown.end.cases[i] <- NA
+    } else {
+        lockdown.end.cases[i] <- 
+        npi.clean.data[(npi.clean.data[,1] == tmp.FIPS & npi.clean.data[,4] == "lockdown"), 6]
+    }
+    
+    if (mean(npi.clean.data$FIPS != tmp.FIPS) == 1) {
+        non.essential.closure.end.cases[i] <- NA
+    } else {
+        non.essential.closure.end.cases[i] <- 
+        npi.clean.data[(npi.clean.data[,1] == tmp.FIPS & npi.clean.data[,4] == "non-essential_services_closure"), 6]
+    }
+    
+    if (mean(npi.clean.data$FIPS != tmp.FIPS) == 1) {
+        religious.closure.end.cases[i] <- NA
+    } else {
+        religious.closure.end.cases[i] <- 
+        npi.clean.data[(npi.clean.data[,1] == tmp.FIPS & npi.clean.data[,4] == "religious_gatherings_banned"), 6]
+    }
+    
+    if (mean(npi.clean.data$FIPS != tmp.FIPS) == 1) {
+        school.closure.end.cases [i] <- NA
+    } else {
+        school.closure.end.cases [i] <- 
+        npi.clean.data[(npi.clean.data[,1] == tmp.FIPS & npi.clean.data[,4] == "school closure"), 6]
+    }
+    
+    if (mean(npi.clean.data$FIPS != tmp.FIPS) == 1) {
+        shelter.in.place.end.cases[i] <- NA
+    } else {
+        shelter.in.place.end.cases[i] <- 
+        npi.clean.data[(npi.clean.data[,1] == tmp.FIPS & npi.clean.data[,4] == "shelter_in_place"), 6]
+    }
+    
+    if (mean(npi.clean.data$FIPS != tmp.FIPS) == 1) {
+        social.distancing.end.cases[i] <- NA
+    } else {
+        social.distancing.end.cases[i] <- 
+        npi.clean.data[(npi.clean.data[,1] == tmp.FIPS & npi.clean.data[,4] == "social_distancing"), 6]
+    }
+
+}
+```
+
+
+```{r}
+head(close.public.venues.end.cases, 25)
+head(gathering.10.0.end.cases, 25)
+head(gathering.25.11.end.cases, 25)
+head(gathering.100.26.end.cases, 25)
+head(gathering.500.101.end.cases, 25)
+head(lockdown.end.cases, 25)
+head(non.essential.closure.end.cases, 25)
+head(religious.closure.end.cases, 25)
+head(school.closure.end.cases, 25)
+head(shelter.in.place.end.cases, 25)
+head(social.distancing.end.cases, 25)
+```
+
+
+```{r}
+mean(is.na(close.public.venues.duration))
+```
+
+```{r}
+length(unique(npi.clean.data$FIPS))
+```
+
+```{r}
+head(essential.data)
+```
+
+```{r}
+names(essential.data)
+```
+
+```{r}
+create_report(raw.data)
+```
+
+```{r}
+raw.data <- read.csv("RawData.csv")
+head(raw.data)
+```
+
+```{r}
+raw.data$POP_ESTIMATE_2018.x <- NULL
+raw.data$pop.density.percentile <- NULL
+raw.data$case.rate <- NULL
+raw.data$case.density.percentile <- NULL
+```
+
+```{r}
+dim(raw.data)
+```
+
+```{r}
+split.number <- ceiling(.2 * nrow(raw.data))
+test.row.numbers <- sample(seq(1,nrow(raw.data)), split.number)
+test.data <- raw.data[test.row.numbers,]
+train.data <- raw.data[-test.row.numbers,]
+```
+
+```{r}
+dim(train.data)
+dim(test.data)
+```
+
+```{r}
+train.labels <- train.data[,c(1:3,5)]
+test.labels <- test.data[,c(1:3,5)]
+train.data$FIPS <- NULL
+train.data$County_Equivalent <- NULL
+train.data$State <- NULL
+train.data$response <- NULL
+test.data$FIPS <- NULL
+test.data$County_Equivalent <- NULL
+test.data$State <- NULL
+test.data$response <- NULL
+```
+
+```{r}
+head(train.labels)
+head(test.labels)
+head(train.data)
+head(test.data)
+```
+
+```{r}
+train.data <- cbind(train.labels$response, train.data)
+test.data <- cbind(test.labels$response, test.data)
+```
+
+```{r}
+dim(train.data)
+```
+
+
+```{r}
+colnames(train.data) <- c("response",colnames(train.data)[2:56])
+head(train.data)
+colnames(test.data) <- c("response",colnames(test.data)[2:56])
+head(test.data)
+```
+
+```{r}
+pp <- preProcess(train.data, method=c("range"))
+pp.train.data <- predict(pp, train.data)
+head(pp.train.data)
+```
+
+```{r}
+pp <- preProcess(test.data, method=c("range"))
+pp.test.data <- predict(pp, test.data)
+head(pp.test.data)
+```
+
+
+```{r}
+logistic.model <- glm(response ~ ., data = train.data, family = binomial, na.action = na.omit)
+summary(logistic.model)
+```
+
+
+```{r}
+glm.predict <- predict(logistic.model, newdata = test.data, type = "response")
+```
+
+```{r}
+assess.prediction=function(truth,predicted) {
+   # same length:
+   if ( length(truth) != length(predicted) ) {
+     stop("truth and predicted must be same length!")
+   }
+   # check for missing values (we are going to 
+   # compute metrics on non-missing values only)
+   bKeep = ! is.na(truth)  & ! is.na(predicted)
+   predicted = predicted[ bKeep ]
+   truth = truth[ bKeep ]
+   # only 0 and 1:
+   if ( sum(truth%in%c(0,1))+sum(predicted%in%c(0,1))!=2*length(truth) ) {
+     stop("only zeroes and ones are allowed!")
+   }
+   cat("Total cases that are not NA: ",
+         length(truth),"\n",sep="") 
+   # overall accuracy of the test: how many cases 
+   # (both positive and 
+   # negative) we got right:
+   cat("Correct predictions (accuracy): ",
+     sum(truth==predicted),
+     "(",signif(sum(truth==predicted)*100/
+     length(truth),3),"%)\n",sep="")
+   # how predictions align against known 
+   # training/testing outcomes:
+   # TP/FP= true/false positives, 
+   # TN/FN=true/false negatives
+   TP = sum(truth==1 & predicted==1)
+   TN = sum(truth==0 & predicted==0)
+   FP = sum(truth==0 & predicted==1)
+   FN = sum(truth==1 & predicted==0)
+   P = TP+FN  # total number of
+         # positives in the truth data
+   N = FP+TN  # total number of
+              # negatives
+   cat("TP, TN, FP, FN, P, N:",TP, TN, FP, FN, P, N, fill=TRUE)
+   cat("TPR (sensitivity)=TP/P: ",
+       signif(100*TP/P,3),"%\n",sep="")
+   cat("TNR (specificity)=TN/N: ",
+       signif(100*TN/N,3),"%\n",sep="")
+   cat("PPV (precision)=TP/(TP+FP): ",
+       signif(100*TP/(TP+FP),3),"%\n",sep="")
+   cat("FDR (false discovery)=1-PPV: ",
+       signif(100*FP/(TP+FP),3),"%\n",sep="")
+   cat("FPR =FP/N=1-TNR: ",
+      signif(100*FP/N,3),"%\n",sep="")
+}
+```
+
+```{r}
+glm.predict[glm.predict >= 0.5] <- 1
+glm.predict[glm.predict < 0.5] <- 0
+```
+
+```{r}
+assess.prediction(test.data$response, glm.predict)
+```
+
+```{r}
+
+```
+
+
+```{r fig.width=10}
+summaryMetrics <- NULL
+whichAll <- list()
+for ( myMthd in c("backward", "forward") ) {
+  # 15 because three categorical attributes are represented by dummy variables:
+  rsRes <- regsubsets(response~.,train.data,method=myMthd,nvmax=55)
+  summRes <- summary(rsRes)
+  whichAll[[myMthd]] <- summRes$which
+  for ( metricName in c("rsq","rss","adjr2","cp","bic") ) {
+    summaryMetrics <- rbind(summaryMetrics,
+      data.frame(method=myMthd,metric=metricName,
+                nvars=1:length(summRes[[metricName]]),
+                value=summRes[[metricName]]))
+  }
+}
+ggplot(summaryMetrics,aes(x=nvars,y=value,shape=method,colour=method)) + geom_path() + geom_point() + facet_wrap(~metric,scales="free") +   theme(legend.position="top")+theme_bw()
+```
+
+```{r fig.width=30, fig.height=20}
+old.par <- par(mfrow=c(1,2),ps=14,mar=c(15,40,2,10))
+for ( myMthd in names(whichAll) ) {
+  image(1:nrow(whichAll[[myMthd]]),
+        1:ncol(whichAll[[myMthd]]),
+        whichAll[[myMthd]],xlab="N(vars)",ylab="",
+        xaxt="n",yaxt="n",breaks=c(-0.5,0.5,1.5),
+        col=c("white","gray"),main=myMthd)
+  axis(1,1:nrow(whichAll[[myMthd]]),rownames(whichAll[[myMthd]]))
+  axis(2,1:ncol(whichAll[[myMthd]]),colnames(whichAll[[myMthd]]),las=2)
+}
+```
+
+```{r}
+colnames(train.data)
+```
+
+
+```{r}
+final.inputs <- test.data[,c("percent.hispanic",
+                             "percent.black",
+                             "cases_shelter_in_place",
+                             "")]
+```
+
+
+
+
+
